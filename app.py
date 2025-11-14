@@ -35,16 +35,31 @@ SCOPE = [
 def init_google_sheets():
     """Initialize Google Sheets client using service account credentials."""
     try:
+        # Try to load from environment variable first (for cloud deployments)
+        creds_json = os.environ.get('GOOGLE_CREDENTIALS_JSON')
+        if creds_json:
+            try:
+                creds_info = json.loads(creds_json)
+                creds = Credentials.from_service_account_info(creds_info, scopes=SCOPE)
+                client = gspread.authorize(creds)
+                logger.info("Google Sheets client initialized successfully from GOOGLE_CREDENTIALS_JSON")
+                return client
+            except json.JSONDecodeError as e:
+                logger.error(f"Error parsing GOOGLE_CREDENTIALS_JSON: {str(e)}")
+            except Exception as e:
+                logger.error(f"Error initializing from GOOGLE_CREDENTIALS_JSON: {str(e)}")
+        
+        # Fall back to file (for local development)
         creds_file = os.environ.get('GOOGLE_CREDENTIALS_FILE', 'credentials.json')
         
         if not os.path.exists(creds_file):
             logger.error(f"Google credentials file not found: {creds_file}")
-            logger.error("Please download your service account credentials and save as credentials.json")
+            logger.error("Please set GOOGLE_CREDENTIALS_JSON environment variable or provide credentials.json file")
             return None
         
         creds = Credentials.from_service_account_file(creds_file, scopes=SCOPE)
         client = gspread.authorize(creds)
-        logger.info("Google Sheets client initialized successfully")
+        logger.info("Google Sheets client initialized successfully from file")
         return client
     except Exception as e:
         logger.error(f"Error initializing Google Sheets: {str(e)}")
